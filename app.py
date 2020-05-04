@@ -333,7 +333,7 @@ def update_data_description(val, val_time):
             please visit this [page](https://ourworldindata.org/coronavirus). Sources: data from *Data Science for
             Social Good Portugal* [GitHub](https://github.com/dssg-pt/covid19pt-data), current population of Portugal
             from *Worldometers* country [page](https://www.worldometers.info/world-population/portugal-population/).
-            Application's [source code](https://link_to_my_github_page).
+            Application's source code [here](https://github.com/dvpinho/covid19dashboard).
             '''
     )
     return text
