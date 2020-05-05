@@ -62,6 +62,8 @@ app = dash.Dash(
     ]
 )
 
+server = app.server
+
 data_dropdown = dcc.Dropdown(
     id="data_dropdown_component",
     options=[{'label': i, 'value': i} for i in data.columns.values[1:]],
