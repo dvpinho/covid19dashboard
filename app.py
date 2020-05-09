@@ -62,6 +62,7 @@ app = dash.Dash(
     ]
 )
 
+app.title = 'Covid-19 Dashboard PT'
 server = app.server
 
 data_dropdown = dcc.Dropdown(
@@ -451,7 +452,8 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
             plot_bgcolor='#2b2b2b',
             paper_bgcolor='#2b2b2b',
             font={
-                'color': 'gray',
+                'color': '#a1a1a1',
+                'family': 'Arial',
                 'size': 13
             }
         )
@@ -524,6 +526,7 @@ def update_graph_1_data(data_source, time_frame, last_data, toggle):
             hovermode='closest',
             font={
                 'color': 'gray',
+                'family': 'Arial',
                 'size': 13
             }
         )

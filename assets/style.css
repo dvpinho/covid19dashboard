@@ -34,7 +34,7 @@ body {
 
 a {
   color: #BA2456;
-  text-decoration: underline;
+  text-decoration: none; /*underline;*/
   cursor: pointer;
 }
 a:hover {
@@ -118,7 +118,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    color: gray;
+    color: #a1a1a1;
 }
 
 #app_dropdown_text {
@@ -464,32 +464,32 @@ a:hover {
 /********************************/
 
 #fatality_rate_display {
-    margin-top: 20px;
-    margin-bottom: 20 px;
+    margin-top: 17px;
+    margin-bottom: 17px;
 }
 
 #recovery_rate_display {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 17px;
+    margin-bottom: 17px;
 }
 
 #tested_samples_display {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 17px;
+    margin-bottom: 17px;
 }
 
 #cases_1m_display {
-    margin-top: 20px;
-    margin-bottom: 15px;
+    margin-top: 17px;
+    margin-bottom: 17px;
 }
 
 #deaths_1m_display {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 17px;
+    margin-bottom: 17px;
 }
 
 #samples_1m_display {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .sc-kgoBCf.gcgTwS, .sc-kgoBCf.gcgTwS, .sc-kgoBCf.gcgTwS {
