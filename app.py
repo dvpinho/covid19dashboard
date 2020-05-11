@@ -69,6 +69,7 @@ data_dropdown = dcc.Dropdown(
     id="data_dropdown_component",
     options=[{'label': i, 'value': i} for i in data.columns.values[1:]],
     clearable=False,
+    searchable=False,
     value="Confirmed Cases"
 )
 
@@ -79,6 +80,7 @@ time_dropdown = dcc.Dropdown(
         {'label': 'Daily', 'value': 'Daily'}
     ],
     clearable=False,
+    searchable=False,
     value="Weekly"
 )
 
@@ -91,6 +93,7 @@ time_window_dropdown = dcc.Dropdown(
         {'label': 'Last 7 days', 'value': 'Last 7 days'},
     ],
     clearable=False,
+    searchable=False,
     value="All Data"
 )
 
