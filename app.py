@@ -1,7 +1,5 @@
 import dash
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
@@ -10,36 +8,25 @@ from datetime import datetime
 
 
 # Load the data from DSSG_PT (Thanks!)
-data = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data.csv',
-                   usecols=['data', 'confirmados', 'recuperados', 'obitos', 'suspeitos', 'lab'],
-                   skiprows=range(1, 5)).fillna(0).rename(columns={
-                       'data': 'Date',
-                       'confirmados': 'Confirmed Cases',
-                       'recuperados': 'Recovered Cases',
-                       'obitos': 'Reported Deaths',
-                       'suspeitos': 'Suspect Cases'})
+data = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data.csv', usecols=[
+    'data', 'confirmados', 'recuperados', 'obitos', 'suspeitos', 'lab', 'internados', 'internados_uci'],
+    skiprows=range(1, 5)).fillna(0).rename(columns={
+        'data': 'Date',
+        'confirmados': 'Confirmed Cases',
+        'recuperados': 'Recovered Cases',
+        'obitos': 'Reported Deaths',
+        'suspeitos': 'Suspect Cases'})
+
 data['Date'] = [datetime.strptime(date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in data['Date']]
 data['Non-Confirmed Cases'] = data['Suspect Cases'] - data['Confirmed Cases'] - data['lab']
-data['Active Cases'] = data['Confirmed Cases'] - data['Reported Deaths'] - data['Recovered Cases']
-data = data.drop('lab', axis=1)
+hospitalized = data['internados'].iloc[-1]
+intensive_care_unit = data['internados_uci'].iloc[-1]
+data = data.drop(['lab', 'internados', 'internados_uci'], axis=1)
 length_data = len(data)
-
 
 # Grab the number of tested samples
 samples_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/amostras.csv',
                           usecols=['amostras']).iloc[-1]
-print(f'The current number of samples is {samples_prt}')
-
-# Grab the current population of Portugal
-page_source_code = requests.get('https://www.worldometers.info/world-population/portugal-population/').text
-soup = BeautifulSoup(page_source_code, 'lxml')
-
-try:
-    info_main_block = soup.find('div', class_=['col-md-8 country-pop-description'])
-    population_pt = int(info_main_block.find_all('strong')[2].text.replace(',', ''))
-except Exception:
-    population_pt = 10.2e6
-print(f'The current population of Portugal is {population_pt}')
 
 """
 Metrics calculation
@@ -49,10 +36,7 @@ where T = average time period from case confirmation to death, in our case T = 7
 """
 death_rate = round((data['Reported Deaths'].iloc[-1] / data['Confirmed Cases'].iloc[-8]) * 100, 2)
 recovery_rate = 100 - death_rate
-deaths_1m_people = round(data['Reported Deaths'].iloc[-1] / population_pt * 1e6, 0)
-cases_1m_people = round(data['Confirmed Cases'].iloc[-1] / population_pt * 1e6, 0)
-samples_1m_people = round(samples_prt / population_pt * 1e6, 0)
-
+active_cases = data['Confirmed Cases'].iloc[-1] - data['Reported Deaths'].iloc[-1] - data['Recovered Cases'].iloc[-1]
 
 # Initialize the app
 app = dash.Dash(
@@ -125,6 +109,20 @@ recovery_rate_display = html.Div(
     ]
 )
 
+active_cases_display = html.Div(
+    id="active_cases_display",
+    children=[
+        daq.LEDDisplay(
+            value=active_cases,
+            label="Active Cases",
+            size=20,
+            color="#FFA500",
+            style={"color": "#black"},
+            backgroundColor="#2b2b2b",
+        )
+    ]
+)
+
 tested_samples_display = html.Div(
     id="tested_samples_display",
     children=[
@@ -139,12 +137,12 @@ tested_samples_display = html.Div(
     ]
 )
 
-cases_1m_display = html.Div(
-    id="cases_1m_display",
+hospitalized_display = html.Div(
+    id="hospitalized_display",
     children=[
         daq.LEDDisplay(
-            value=cases_1m_people,
-            label="Cases / 1M People",
+            value=hospitalized,
+            label="Hospitalized",
             size=20,
             color="#FFA500",
             style={"color": "#black"},
@@ -153,28 +151,14 @@ cases_1m_display = html.Div(
     ]
 )
 
-deaths_1m_display = html.Div(
-    id="deaths_1m_display",
+icu_display = html.Div(
+    id="icu_display",
     children=[
         daq.LEDDisplay(
-            value=deaths_1m_people,
-            label="Deaths / 1M People",
+            value=intensive_care_unit,
+            label="Intensive Care Unit",
             size=20,
             color="#B22222",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-samples_1m_display = html.Div(
-    id="samples_1m_display",
-    children=[
-        daq.LEDDisplay(
-            value=samples_1m_people,
-            label="Samples / 1M People",
-            size=20,
-            color="white",
             style={"color": "#black"},
             backgroundColor="#2b2b2b",
         )
@@ -281,10 +265,10 @@ main_panel_layout = html.Div(
                             children=[
                                 fatality_rate_display,
                                 recovery_rate_display,
+                                active_cases_display,
                                 tested_samples_display,
-                                cases_1m_display,
-                                deaths_1m_display,
-                                samples_1m_display
+                                hospitalized_display,
+                                icu_display
                             ]
                         )
                     ]
@@ -337,8 +321,7 @@ def update_data_description(val, val_time):
             over time is also present. Hover over the graph for more information. Drag the mouse to zoom in and
             doubleclick to zoom back out. For more information concerning statistics and research about *COVID-19*
             please visit this [page](https://ourworldindata.org/coronavirus). Sources: data from *Data Science for
-            Social Good Portugal* [GitHub](https://github.com/dssg-pt/covid19pt-data), current population of Portugal
-            from *Worldometers* country [page](https://www.worldometers.info/world-population/portugal-population/).
+            Social Good Portugal* [GitHub](https://github.com/dssg-pt/covid19pt-data).
             Application's source code [here](https://github.com/dvpinho/covid19dashboard).
             '''
     )
@@ -378,8 +361,6 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
         index = 13
     elif data_source == 'Non-Confirmed Cases':
         index = 0
-    elif data_source == 'Active Cases':
-        index = 1
 
     if time_frame == 'Weekly':
         time = 7
