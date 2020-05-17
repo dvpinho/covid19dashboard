@@ -473,22 +473,22 @@ a:hover {
     margin-bottom: 17px;
 }
 
+#active_cases_display {
+    margin-top: 17px;
+    margin-bottom: 17px;
+}
+
 #tested_samples_display {
     margin-top: 17px;
     margin-bottom: 17px;
 }
 
-#cases_1m_display {
+#hospitalized_display {
     margin-top: 17px;
     margin-bottom: 17px;
 }
 
-#deaths_1m_display {
-    margin-top: 17px;
-    margin-bottom: 17px;
-}
-
-#samples_1m_display {
+#icu_display {
     margin-bottom: 12px;
 }
 
