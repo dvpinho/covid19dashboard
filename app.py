@@ -35,7 +35,6 @@ where T = average time period from case confirmation to death, in our case T = 7
 (Source: https://www.worldometers.info/coronavirus/coronavirus-death-rate/)
 """
 death_rate = round((data['Reported Deaths'].iloc[-1] / data['Confirmed Cases'].iloc[-8]) * 100, 2)
-recovery_rate = 100 - death_rate
 active_cases = data['Confirmed Cases'].iloc[-1] - data['Reported Deaths'].iloc[-1] - data['Recovered Cases'].iloc[-1]
 
 # Initialize the app
@@ -46,7 +45,7 @@ app = dash.Dash(
     ]
 )
 
-app.title = 'Covid-19 Dashboard PT'
+app.title = 'COVID-19 Dashboard PT'
 server = app.server
 
 data_dropdown = dcc.Dropdown(
@@ -89,20 +88,6 @@ fatality_rate_display = html.Div(
             label="Case-Fatality Rate (%)",
             size=20,
             color="#eb3434",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-recovery_rate_display = html.Div(
-    id="recovery_rate_display",
-    children=[
-        daq.LEDDisplay(
-            value=recovery_rate,
-            label="Recovery Rate (%)",
-            size=20,
-            color="#2e8b57",
             style={"color": "#black"},
             backgroundColor="#2b2b2b",
         )
@@ -264,7 +249,6 @@ main_panel_layout = html.Div(
                         html.Div(
                             children=[
                                 fatality_rate_display,
-                                recovery_rate_display,
                                 active_cases_display,
                                 tested_samples_display,
                                 hospitalized_display,
@@ -418,7 +402,7 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
             hovertemplate='%{y:.0f}<br>' + '<b>Increase: %{text:.1f}%</b>',
             text=marker_labels,
             marker={
-                'size': 10,
+                'size': 8,
                 'opacity': 0.8
             }
         )],
@@ -489,7 +473,7 @@ def update_graph_1_data(data_source, time_frame, last_data, toggle):
             name=data_source,
             mode='lines+markers',
             marker={
-                'size': 10,
+                'size': 7,
                 'opacity': 0.8
             }
         )],
