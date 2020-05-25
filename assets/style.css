@@ -243,6 +243,19 @@ a:hover {
     margin-bottom: 3rem;
 }
 
+#world_map_wrapper {
+    height: 50rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+#world_map {
+    height: 100%;
+    width: 100%;
+    margin-top: 10px;
+}
+
 #graph_1 {
     height: 100%;
     width: 100%;
@@ -252,8 +265,16 @@ a:hover {
     margin: 0 !important;
 }
 
+#world_map_wrapper .sc-bdVaJa.fsmTNM, .sc-bdVaJa.bQWqnK {
+    background-color: #1e1e1e;
+}
+
 #graph_1_wrapper .sc-bdVaJa.fsmTNM, .sc-bdVaJa.bQWqnK {
     background-color: #1e1e1e;
+}
+
+#world_map_wrapper .sc-bxivhb.iArJfC, .sc-bxivhb.cmSQpo {
+    background-color: #2b2b2b;
 }
 
 #graph_1_wrapper .sc-bxivhb.iArJfC, .sc-bxivhb.cmSQpo {
@@ -272,10 +293,18 @@ a:hover {
     #graph_1_wrapper {
         height: 40rem;
     }
+
+    #world_map_wrapper {
+        height: 40rem;
+    }
 }
 
 @media (max-width: 700px) {
     #graph_1_wrapper {
+        height: 30rem;
+    }
+
+    #world_map_wrapper {
         height: 30rem;
     }
 
@@ -294,6 +323,10 @@ a:hover {
 
 @media (max-width: 500px) {
     #graph_1_wrapper {
+        height: 20rem;
+    }
+
+    #world_map_wrapper {
         height: 20rem;
     }
 
@@ -321,6 +354,7 @@ a:hover {
 #panel {
     display: flex;
     flex-direction: row;
+    margin-bottom: 30px
 }
 
 #placeholder {
