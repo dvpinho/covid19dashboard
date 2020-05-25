@@ -1,5 +1,7 @@
 import dash
+import pathlib
 import pandas as pd
+import plotly.express as px
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
@@ -181,6 +183,34 @@ figure_2_scale_toggle = daq.ToggleSwitch(
     style={"color": "#black"}
 )
 
+region_toggle = daq.ToggleSwitch(
+    id="region_toggle",
+    value=True,
+    label=["Districts", "Cities"],
+    color="#ffe102",
+    style={"color": "#black"}
+)
+
+map_layout = {
+    "showlegend": False,
+    "autosize": True,
+    "paper_bgcolor": "#1e1e1e",
+    "plot_bgcolor": "#1e1e1e",
+    "margin": {"t": 0, "r": 0, "b": 0, "l": 0},
+}
+
+map_graph = html.Div(
+    id="world_map_wrapper",
+    children=[
+        region_toggle,
+        dcc.Graph(
+            id="world_map",
+            figure={"layout": map_layout},
+            config={"displayModeBar": False, "scrollZoom": True},
+        ),
+    ],
+)
+
 figure_1_layout = {
     "showlegend": False,
     "autosize": True,
@@ -258,7 +288,8 @@ main_panel_layout = html.Div(
                     ]
                 )
             ]
-        )
+        ),
+        map_graph
     ]
 )
 
@@ -499,6 +530,62 @@ def update_graph_1_data(data_source, time_frame, last_data, toggle):
             }
         )
     }
+
+
+@app.callback(
+    Output('world_map', 'figure'),
+    [Input('region_toggle', 'value')]
+)
+def update_map(toggle):
+
+    pt_cities = pd.read_csv("https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data_concelhos.csv").drop(
+        columns='data').fillna(method='ffill').fillna(method='bfill').dropna(axis=1)
+
+    DATA_PATH = pathlib.Path(__file__).parent.joinpath("data")
+
+    cities_coordinates = pd.read_csv(DATA_PATH.joinpath('pt_regions.csv'), usecols=['city', 'latitude', 'longitude', 'district'])
+    cities_coordinates['city'] = cities_coordinates['city'].str.upper()
+
+    districts_coordinates = pd.read_csv(DATA_PATH.joinpath('pt_districts.csv'))
+
+    data = cities_coordinates[cities_coordinates['city'].isin(pt_cities.columns)]
+    data = data.assign(
+        current_cases=[pt_cities[city].iloc[-1] for _, city in enumerate(data['city'])],
+        max_cases=[pt_cities[city].max() for _, city in enumerate(data['city'])],
+        daily_diff=[pt_cities[city].iloc[-1] - pt_cities[city].iloc[-2] for _, city in enumerate(data['city'])]
+    )
+
+    data_districts = districts_coordinates.assign(
+        current_cases=[data[data['district'] == district]['current_cases'].sum() for _, district in enumerate(
+            districts_coordinates['district'])],
+        max_cases=[data[data['district'] == district]['max_cases'].sum() for _, district in enumerate(
+            districts_coordinates['district'])],
+        daily_diff=[data[data['district'] == district]['daily_diff'].sum() for _, district in enumerate(
+            districts_coordinates['district'])]
+    )
+
+    if toggle:
+        data_main = data
+        hover_name = "city"
+    else:
+        data_main = data_districts
+        hover_name = "district"
+
+    fig = px.scatter_mapbox(data_main, lat="latitude", lon="longitude", hover_name=hover_name, color='current_cases',
+                            size='current_cases', color_continuous_scale='OrRd', size_max=50, zoom=5,
+                            hover_data=['current_cases', 'max_cases', 'daily_diff'],
+                            labels={
+                                'current_cases': 'Current confirmed cases',
+                                'max_cases': 'Peak confirmed cases',
+                                'daily_diff': 'New cases since yesterday'
+                            })
+
+    MAPBOX_ACCESS_TOKEN = "pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A"
+
+    fig.update_layout(mapbox_style='dark', mapbox_accesstoken=MAPBOX_ACCESS_TOKEN, coloraxis_showscale=False)
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+
+    return fig
 
 
 if __name__ == "__main__":
