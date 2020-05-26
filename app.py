@@ -1,3 +1,4 @@
+import os
 import dash
 import pathlib
 import pandas as pd
@@ -580,7 +581,9 @@ def update_map(toggle):
                                 'daily_diff': 'New cases since yesterday'
                             })
 
-    fig.update_layout(mapbox_style='carto-darkmatter', coloraxis_showscale=False)
+    MAPBOX_ACCESS_TOKEN = os.environ.get('MAPBOX_ACCESS_TOKEN')
+
+    fig.update_layout(mapbox_style="dark", mapbox_accesstoken=MAPBOX_ACCESS_TOKEN, coloraxis_showscale=False)
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
 
     return fig
