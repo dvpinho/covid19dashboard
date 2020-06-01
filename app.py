@@ -1,8 +1,9 @@
 import os
 import dash
 import pathlib
+import requests
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objs as go
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
@@ -336,9 +337,10 @@ def update_data_description(val, val_time):
             {time_window}. Time is shown in each data point with the corresponding day. Below the main figure, the data
             over time is also present. Hover over the graph for more information. Drag the mouse to zoom in and
             doubleclick to zoom back out. For more information concerning statistics and research about *COVID-19*
-            please visit this [page](https://ourworldindata.org/coronavirus). Sources: data from *Data Science for
-            Social Good Portugal* [GitHub](https://github.com/dssg-pt/covid19pt-data).
-            Application's source code [here](https://github.com/dvpinho/covid19dashboard).
+            please visit this [page](https://ourworldindata.org/coronavirus). Sources: Portugal data from [*Data Science
+            for Social Good Portugal*](https://github.com/dssg-pt/covid19pt-data).
+            Country level data from [*TrackCorona*](https://www.trackcorona.live/).
+            Application's [source code](https://github.com/dvpinho/covid19dashboard).
             '''
     )
     return text
@@ -572,19 +574,87 @@ def update_map(toggle):
         data_main = data_districts
         hover_name = "district"
 
-    fig = px.scatter_mapbox(data_main, lat="latitude", lon="longitude", hover_name=hover_name, color='current_cases',
-                            size='current_cases', color_continuous_scale='OrRd', size_max=50, zoom=5,
-                            hover_data=['current_cases', 'max_cases', 'daily_diff'],
-                            labels={
-                                'current_cases': 'Current confirmed cases',
-                                'max_cases': 'Peak confirmed cases',
-                                'daily_diff': 'New cases since yesterday'
-                            })
+    url = 'https://www.trackcorona.live/api/countries'
+    countries_data = requests.get(url).json()
+    countries = pd.DataFrame(countries_data['data'])
+
+    # Location correction for Togo, Congo and Georgia
+    countries.loc[countries['location'] == 'Togo', ['latitude', 'longitude']] = 8.619543, 0.824782
+    countries.loc[countries['location'] == 'Congo', ['latitude', 'longitude']] = -0.228021, 15.827659
+    countries.loc[countries['location'] == 'Georgia', ['latitude', 'longitude']] = 42.315407, 43.356892
+
+    countries = countries[countries['location'] != 'Portugal']  # Remove PRT from map. Data from PRT already exists
+
+    color_scale = ['#FFFAFA', '#F4C2C2', '#FF6961', '#FF5C5C', '#FF1C00', '#FF0800', '#FF0000', '#CD5C5C', '#E34234',
+                   '#D73B3E', '#CE1620', '#CC0000', '#B22222', '#B31B1B', '#A40000', '#800000', '#701C1C', '#321414']
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=data_main['latitude'],
+            lon=data_main['longitude'],
+            hovertemplate=
+            "<b>%{hovertext}</b><br><br>"
+            "Current confirmed cases: %{marker.color}<br>"
+            "Peak confirmed cases: %{customdata}<br>"
+            "New cases since yesterday: %{text}"
+            "<extra></extra>",
+            customdata=data_main['max_cases'],
+            hovertext=data_main[hover_name],
+            text=data_main['daily_diff'],
+            mode='markers',
+            marker=go.scattermapbox.Marker(
+                size=data_main['current_cases'],
+                color=data_main['current_cases'],
+                sizemode='area',
+                sizeref=.7,
+                colorscale=color_scale
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=countries['latitude'],
+            lon=countries['longitude'],
+            hovertemplate=
+            "<b>%{hovertext}</b><br><br>"
+            "Confirmed cases: %{marker.color}<br>"
+            "Reported deaths: %{customdata}<br>"
+            "Recovered cases: %{text}"
+            "<extra></extra>",
+            customdata=countries['dead'],
+            hovertext=countries['location'],
+            text=countries['recovered'],
+            mode='markers',
+            marker=go.scattermapbox.Marker(
+                size=countries['confirmed'],
+                color=countries['confirmed'],
+                sizemode='area',
+                sizeref=30,
+                colorscale=color_scale
+            )
+        )
+    )
 
     MAPBOX_ACCESS_TOKEN = os.environ.get('MAPBOX_ACCESS_TOKEN')
 
-    fig.update_layout(mapbox_style="dark", mapbox_accesstoken=MAPBOX_ACCESS_TOKEN, coloraxis_showscale=False)
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    fig.update_layout(
+        autosize=True,
+        hovermode='closest',
+        showlegend=False,
+        margin={'b': 0, 'l': 0, 'r': 0, 't': 0},
+        mapbox=dict(
+            accesstoken=MAPBOX_ACCESS_TOKEN,
+            center=dict(
+                lat=39.55,
+                lon=-8.18
+            ),
+            zoom=6,
+            style='dark'
+        )
+    )
 
     return fig
 
