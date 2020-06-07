@@ -23,14 +23,25 @@ data = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/mas
 
 data['Date'] = [datetime.strptime(date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in data['Date']]
 data['Non-Confirmed Cases'] = data['Suspect Cases'] - data['Confirmed Cases'] - data['lab']
+
+prt_confirmed = data['Confirmed Cases'].iloc[-1]
+prt_deaths = data['Reported Deaths'].iloc[-1]
+prt_recovered = data['Recovered Cases'].iloc[-1]
+active_cases = data['Confirmed Cases'].iloc[-1] - data['Reported Deaths'].iloc[-1] - data['Recovered Cases'].iloc[-1]
+active_cases_daily = active_cases - (
+    data['Confirmed Cases'].iloc[-2] - data['Reported Deaths'].iloc[-2] - data['Recovered Cases'].iloc[-2])
 hospitalized = data['internados'].iloc[-1]
+hospitalized_daily = hospitalized - data['internados'].iloc[-2]
 intensive_care_unit = data['internados_uci'].iloc[-1]
+icu_daily = intensive_care_unit - data['internados_uci'].iloc[-2]
+
 data = data.drop(['lab', 'internados', 'internados_uci'], axis=1)
 length_data = len(data)
 
 # Grab the number of tested samples
-samples_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/amostras.csv',
-                          usecols=['amostras']).iloc[-1]
+samples_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/amostras.csv').iloc[-1]
+total_samples = samples_prt['amostras']
+new_samples = samples_prt['amostras_novas']
 
 """
 Metrics calculation
@@ -39,7 +50,29 @@ where T = average time period from case confirmation to death, in our case T = 7
 (Source: https://www.worldometers.info/coronavirus/coronavirus-death-rate/)
 """
 death_rate = round((data['Reported Deaths'].iloc[-1] / data['Confirmed Cases'].iloc[-8]) * 100, 2)
-active_cases = data['Confirmed Cases'].iloc[-1] - data['Reported Deaths'].iloc[-1] - data['Recovered Cases'].iloc[-1]
+
+
+def get_country_data():
+
+    url = 'https://www.trackcorona.live/api/countries'
+    countries_data = requests.get(url).json()
+    countries = pd.DataFrame(countries_data['data'])
+
+    # Location correction for Togo, Congo and Georgia
+    countries.loc[countries['location'] == 'Togo', ['latitude', 'longitude']] = 8.619543, 0.824782
+    countries.loc[countries['location'] == 'Congo', ['latitude', 'longitude']] = -0.228021, 15.827659
+    countries.loc[countries['location'] == 'Georgia', ['latitude', 'longitude']] = 42.315407, 43.356892
+
+    countries = countries[countries['location'] != 'Portugal']  # Remove PRT from map. Data from PRT has own source.
+
+    return countries
+
+
+countries = get_country_data()
+world_confirmed = countries['confirmed'].sum()
+world_recovered = countries['recovered'].sum()
+world_deaths = countries['dead'].sum()
+world_active = world_confirmed - world_recovered - world_deaths
 
 # Initialize the app
 app = dash.Dash(
@@ -84,77 +117,8 @@ time_window_dropdown = dcc.Dropdown(
     value="All Data"
 )
 
-fatality_rate_display = html.Div(
-    id="fatality_rate_display",
-    children=[
-        daq.LEDDisplay(
-            value=death_rate,
-            label="Case-Fatality Rate (%)",
-            size=20,
-            color="#eb3434",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-active_cases_display = html.Div(
-    id="active_cases_display",
-    children=[
-        daq.LEDDisplay(
-            value=active_cases,
-            label="Active Cases",
-            size=20,
-            color="#FFA500",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-tested_samples_display = html.Div(
-    id="tested_samples_display",
-    children=[
-        daq.LEDDisplay(
-            value=samples_prt,
-            label="Tested Samples",
-            size=20,
-            color="white",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-hospitalized_display = html.Div(
-    id="hospitalized_display",
-    children=[
-        daq.LEDDisplay(
-            value=hospitalized,
-            label="Hospitalized",
-            size=20,
-            color="#FFA500",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-icu_display = html.Div(
-    id="icu_display",
-    children=[
-        daq.LEDDisplay(
-            value=intensive_care_unit,
-            label="Intensive Care Unit",
-            size=20,
-            color="#B22222",
-            style={"color": "#black"},
-            backgroundColor="#2b2b2b",
-        )
-    ]
-)
-
-app_title = html.P(id="app_title", children=["COVID-19", html.Br(), " Portugal Dashboard"])
+app_title = html.P(id="app_title", children=["COVID-19", html.Br(), "Portugal Dashboard"])
+app_update_date = html.P(id="update_date", children=[f"Status as of {data['Date'].iloc[-1]}"])
 app_dropdown_text = html.H1(id="app_dropdown_text", children="")
 app_body = html.P(className="app_body", id="app_body", children=[""])
 
@@ -162,6 +126,7 @@ side_panel_layout = html.Div(
     id="panel_side",
     children=[
         app_title,
+        app_update_date,
         html.Div(id="info_dropdown",
                  children=[data_dropdown, time_dropdown, time_window_dropdown]),
         html.Div(id="panel_side_text",
@@ -191,26 +156,6 @@ region_toggle = daq.ToggleSwitch(
     label=["Districts", "Cities"],
     color="#ffe102",
     style={"color": "#black"}
-)
-
-map_layout = {
-    "showlegend": False,
-    "autosize": True,
-    "paper_bgcolor": "#1e1e1e",
-    "plot_bgcolor": "#1e1e1e",
-    "margin": {"t": 0, "r": 0, "b": 0, "l": 0},
-}
-
-map_graph = html.Div(
-    id="world_map_wrapper",
-    children=[
-        region_toggle,
-        dcc.Graph(
-            id="world_map",
-            figure={"layout": map_layout},
-            config={"displayModeBar": False, "scrollZoom": True},
-        ),
-    ],
 )
 
 figure_1_layout = {
@@ -252,46 +197,162 @@ graph_2 = html.Div(
     ]
 )
 
-metrics = html.Div(
-    id="metrics_container",
+map_layout = {
+    "showlegend": False,
+    "autosize": True,
+    "paper_bgcolor": "#1e1e1e",
+    "plot_bgcolor": "#1e1e1e",
+    "margin": {"t": 0, "r": 0, "b": 0, "l": 0},
+}
+
+map_graph = html.Div(
+    id="world_map_wrapper",
     children=[
-        html.Div(
-            id="metrics_header",
-            children=[
-                html.H1(
-                    id="metrics_title", children=[f"Status as of {data['Date'].iloc[-1]}"]
-                )
-            ]
-        )
-    ]
+        region_toggle,
+        dcc.Graph(
+            id="world_map",
+            figure={"layout": map_layout},
+            config={"displayModeBar": False, "scrollZoom": True},
+        ),
+    ],
 )
 
 main_panel_layout = html.Div(
     id="panel_upper_lower",
     children=[
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.H6(f'{prt_confirmed:,}'.replace(',', ' '), style={'color': '#e0f7fa'}),
+                        dcc.Markdown(f"*+{prt_confirmed - data['Confirmed Cases'].iloc[-2]}*",
+                                     style={'color': '#e0f7fa'}),
+                        html.P(children=["Confirmed Cases", html.Br(), "Portugal"])
+                    ],
+                    id="confirmed_cases_prt",
+                    className="container_confirmed_cases",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{prt_deaths:,}'.replace(',', ' '), style={'color': '#f44336'}),
+                        dcc.Markdown(f"*+{prt_deaths - data['Reported Deaths'].iloc[-2]}*",
+                                     style={'color': '#f44336'}),
+                        html.P(children=["Reported Deaths", html.Br(), "Portugal"])
+                    ],
+                    id="reported_deaths_prt",
+                    className="container_reported_deaths",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{prt_recovered:,}'.replace(',', ' '), style={'color': '#66bb6a'}),
+                        dcc.Markdown(f"*+{prt_recovered - data['Recovered Cases'].iloc[-2]}*",
+                                     style={'color': '#66bb6a'}),
+                        html.P(children=["Recovered Cases", html.Br(), "Portugal"])
+                    ],
+                    id="recovered_cases_prt",
+                    className="container_recovered_cases",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{active_cases:,}'.replace(',', ' '), style={'color': '#FFA500'}),
+                        dcc.Markdown(f'*+{active_cases_daily}*' if active_cases_daily > 0 else f'*{active_cases_daily}*',
+                                     style={'color': '#FFA500'}),
+                        html.P(children=["Active Cases", html.Br(), "Portugal"])
+                    ],
+                    id="active_cases_prt",
+                    className="container_active_cases",
+                )
+            ],
+            className="row container-display",
+        ),
         graph_1,
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.H6(f'{int(hospitalized)}', style={'color': '#FFA500'}),
+                        dcc.Markdown(f'*+{int(hospitalized_daily)}*' if hospitalized_daily > 0 else f'*{int(hospitalized_daily)}*',
+                                     style={'color': '#FFA500'}),
+                        html.P(children=["Hospitalized Cases", html.Br(), "Portugal"])
+                    ],
+                    id="hospitalized_cases_prt",
+                    className="container_hospitalized_cases",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{int(intensive_care_unit)}', style={'color': '#B22222'}),
+                        dcc.Markdown(f'*+{int(icu_daily)}*' if icu_daily > 0 else f'*{int(icu_daily)}*',
+                                     style={'color': '#B22222'}),
+                        html.P(children=["Intensive Care Unit", html.Br(), "Portugal"])
+                    ],
+                    id="icu_cases_prt",
+                    className="container_icu_cases",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{int(total_samples):,}'.replace(',', ' '), style={'color': '#4db6ac'}),
+                        dcc.Markdown(f'*+{int(new_samples):,}*'.replace(',', ' '), style={'color': '#4db6ac'}),
+                        html.P(children=["Tested Samples", html.Br(), "Portugal"])
+                    ],
+                    id="samples_prt",
+                    className="container_samples_prt",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{death_rate}', style={'color': '#eb3434'}),
+                        dcc.Markdown(f'-'),
+                        html.P(children=["Fatality Rate (%)", html.Br(), "Portugal"])
+                    ],
+                    id="death_rate_prt",
+                    className="container_death_rate",
+                )
+            ],
+            className="row container-display",
+        ),
         html.Div(
             id="panel",
             children=[
-                graph_2,
-                html.Div(
-                    id='panel_metrics',
-                    children=[
-                        metrics,
-                        html.Div(
-                            children=[
-                                fatality_rate_display,
-                                active_cases_display,
-                                tested_samples_display,
-                                hospitalized_display,
-                                icu_display
-                            ]
-                        )
-                    ]
-                )
+                graph_2
             ]
         ),
-        map_graph
+        map_graph,
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.H5(f'{world_confirmed:,}'.replace(',', ' '), style={'color': '#e0f7fa'}),
+                        html.P(children=["Confirmed Cases", html.Br(), "Worldwide"])
+                    ],
+                    id="confirmed_cases_world",
+                    className="container_confirmed_cases",
+                ),
+                html.Div(
+                    [
+                        html.H5(f'{world_deaths:,}'.replace(',', ' '), style={'color': '#f44336'}),
+                        html.P(children=["Reported Deaths", html.Br(), "Worldwide"])
+                    ],
+                    id="reported_deaths_world",
+                    className="container_reported_deaths",
+                ),
+                html.Div(
+                    [
+                        html.H5(f'{world_recovered:,}'.replace(',', ' '), style={'color': '#66bb6a'}),
+                        html.P(children=["Recoverd Cases", html.Br(), "Worldwide"])
+                    ],
+                    id="recovered_cases_world",
+                    className="container_recovered_cases",
+                ),
+                html.Div(
+                    [
+                        html.H5(f'{world_active:,}'.replace(',', ' '), style={'color': '#FFA500'}),
+                        html.P(children=["Active Cases", html.Br(), "Worldwide"])
+                    ],
+                    id="active_cases_world",
+                    className="container_active_cases",
+                )
+            ],
+            className="row container-display",
+        )
     ]
 )
 
@@ -311,7 +372,7 @@ app.layout = root_layout
     [Input("data_dropdown_component", "value"),
      Input("time_window_dropdown_component", "value")],
 )
-def update_satellite_name(val, val_last_time):
+def update_app_name(val, val_last_time):
     return f"SARS-CoV-2\n{val} ({val_last_time})"
 
 
@@ -329,15 +390,15 @@ def update_data_description(val, val_time):
     text = dcc.Markdown(
         f'''
             The interactive graph displayed to the right shows the trajectory of the number of new **{val}** by
-            *SARS-CoV-2* in the past {time_window} as a function of the total number of **{val}** (Data from DGS daily
-            reports). If viewed with a weekly rate of change, the exponential behaviour is viewed as a straight line
-            and, in case the disease is being beaten, the curve with start to round off at the top and will start to
-            travel with a downwards trend that will be visible as a sudden drop. Note that the graph is not plotted
-            over time, but instead the total number of **{val}**, therefore, it plots the rate of change over the last
-            {time_window}. Time is shown in each data point with the corresponding day. Below the main figure, the data
-            over time is also present. Hover over the graph for more information. Drag the mouse to zoom in and
-            doubleclick to zoom back out. For more information concerning statistics and research about *COVID-19*
-            please visit this [page](https://ourworldindata.org/coronavirus). Sources: Portugal data from [*Data Science
+            *SARS-CoV-2* in the past {time_window} as a function of the total number of **{val}**. If viewed with a
+            weekly rate of change, the exponential behaviour is observed as a straight line and, in case the disease
+            is being beaten, the curve with start to round off at the top and will start to travel with a downwards
+            trend that will be visible as a sudden drop. Note that the graph is not plotted over time, but instead over
+            the total number of **{val}**, therefore, it plots the rate of change over the last {time_window}. Time is
+            shown in each data point with the corresponding day. Below the main figure, the data over time is also
+            present. Hover over the graph for more information. Drag the mouse to zoom in and doubleclick to zoom back
+            out. For more information concerning statistics and research about *COVID-19* please visit
+            this [page](https://ourworldindata.org/coronavirus). Sources: Portugal data from [*Data Science
             for Social Good Portugal*](https://github.com/dssg-pt/covid19pt-data).
             Country level data from [*TrackCorona*](https://www.trackcorona.live/).
             Application's [source code](https://github.com/dvpinho/covid19dashboard).
@@ -524,7 +585,7 @@ def update_graph_1_data(data_source, time_frame, last_data, toggle):
             },
             plot_bgcolor='#1e1e1e',
             paper_bgcolor='#1e1e1e',
-            margin={'r': 25},
+            margin={'r': 5, 't': 10},
             hovermode='closest',
             font={
                 'color': 'gray',
@@ -574,17 +635,6 @@ def update_map(toggle):
         data_main = data_districts
         hover_name = "district"
 
-    url = 'https://www.trackcorona.live/api/countries'
-    countries_data = requests.get(url).json()
-    countries = pd.DataFrame(countries_data['data'])
-
-    # Location correction for Togo, Congo and Georgia
-    countries.loc[countries['location'] == 'Togo', ['latitude', 'longitude']] = 8.619543, 0.824782
-    countries.loc[countries['location'] == 'Congo', ['latitude', 'longitude']] = -0.228021, 15.827659
-    countries.loc[countries['location'] == 'Georgia', ['latitude', 'longitude']] = 42.315407, 43.356892
-
-    countries = countries[countries['location'] != 'Portugal']  # Remove PRT from map. Data from PRT already exists
-
     color_scale = ['#FFFAFA', '#F4C2C2', '#FF6961', '#FF5C5C', '#FF1C00', '#FF0800', '#FF0000', '#CD5C5C', '#E34234',
                    '#D73B3E', '#CE1620', '#CC0000', '#B22222', '#B31B1B', '#A40000', '#800000', '#701C1C', '#321414']
 
@@ -594,8 +644,7 @@ def update_map(toggle):
         go.Scattermapbox(
             lat=data_main['latitude'],
             lon=data_main['longitude'],
-            hovertemplate=
-            "<b>%{hovertext}</b><br><br>"
+            hovertemplate="<b>%{hovertext}</b><br><br>"
             "Current confirmed cases: %{marker.color}<br>"
             "Peak confirmed cases: %{customdata}<br>"
             "New cases since yesterday: %{text}"
@@ -618,8 +667,7 @@ def update_map(toggle):
         go.Scattermapbox(
             lat=countries['latitude'],
             lon=countries['longitude'],
-            hovertemplate=
-            "<b>%{hovertext}</b><br><br>"
+            hovertemplate="<b>%{hovertext}</b><br><br>"
             "Confirmed cases: %{marker.color}<br>"
             "Reported deaths: %{customdata}<br>"
             "Recovered cases: %{text}"

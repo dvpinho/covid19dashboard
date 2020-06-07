@@ -28,6 +28,130 @@ body {
     }
 }
 
+/****/
+
+.container_confirmed_cases {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 15px 30px 0px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_reported_deaths {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 30px 0px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_recovered_cases {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 30px 15px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_active_cases {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 30px 15px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+/****/
+
+.container_hospitalized_cases {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 15px 30px 0px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_icu_cases {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 30px 0px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_samples_prt {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 30px 15px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_death_rate {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 30px 15px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+/****/
+
+h6 {
+  font-size: 1.8rem;
+  line-height: .5; /*1.6*/
+  letter-spacing: 0;
+  margin-bottom: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+h5 {
+  font-size: 1.8rem;
+  line-height: 1.6;
+  letter-spacing: 0;
+  margin-bottom: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.container-display {
+  display: flex;
+}
+
+#confirmed_cases_prt,
+#reported_deaths_prt,
+#recovered_cases_prt,
+#active_cases_prt,
+#hospitalized_cases_prt,
+#icu_cases_prt,
+#death_rate_prt,
+#samples_prt {
+  flex: 1;
+  opacity: 0.8;
+}
+
+#confirmed_cases_world,
+#reported_deaths_world,
+#recovered_cases_world,
+#active_cases_world {
+  flex: 1;
+  opacity: 0.8;
+}
+
 /********************************/
 /*Links*/
 /********************************/
@@ -46,7 +170,7 @@ a:hover {
 /*Side panel*/
 /********************************/
 #panel_side {
-    padding: 7rem 4rem;
+    padding: 5rem 4rem;
     display: flex;
     flex-direction: column;
     justify-content: start;
@@ -61,7 +185,16 @@ a:hover {
     font-size: 2rem;
     font-weight: normal;
     word-break: normal;
-    margin: 0 0 1rem 0;
+    margin: 0 0 0.5rem 0;
+}
+
+#update_date {
+    color: #white;
+    font-family: "Roboto", sans-serif;
+    font-size: 1rem;
+    font-weight: lighter;
+    word-break: normal;
+    margin: 0 0 2rem 0;
 }
 
 .has-value.Select--single > .Select-control .Select-value .Select-value-label,
@@ -161,6 +294,14 @@ a:hover {
         font-size: 1.8rem;
     }
 
+    #update_date {
+        font-size: 0.8rem;
+    }
+
+    h6, h5 {
+        font-size: 1.6rem;
+    }
+
     #data_dropdown_component {
         font-size: 0.8rem !important;
     }
@@ -198,6 +339,14 @@ a:hover {
         text-align: center;
     }
 
+    #update_date {
+        text-align: center;
+    }
+
+    h6, h5 {
+        font-size: 1.2rem;
+    }
+
     #panel_side_text {
         align-items: center;
     }
@@ -222,7 +371,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     flex: 5 83%;
-    padding: 4rem 3rem;
+    padding: 1.6rem 3rem;
 }
 
 @media (max-width: 550px) {
@@ -236,7 +385,7 @@ a:hover {
 /********************************/
 
 #graph_1_wrapper {
-    height: 50rem;
+    height: 46rem;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -408,40 +557,6 @@ a:hover {
 
 /********************************/
 
-#metrics_container {
-    background-color: #2b2b2b;
-    flex: 2 20%;
-    display: flex;
-    flex-direction: column;
-}
-
-#metrics_header {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid gray;
-    padding: 0.75rem 2rem;
-}
-
-#metrics_header .sc-bdVaJa.fsmTNM, .sc-bdVaJa.bQWqnK {
-    background-color: #2b2b2b !important;
-}
-
-#metrics_header .sc-bxivhb.iArJfC, .sc-bxivhb.cmSQpo {
-    background-color: #484848 !important;
-}
-
-#metrics_title {
-    flex: 1 66%;
-    font-size: 1rem;
-    text-align: center;
-    font-weight: normal;
-}
-
-
-/********************************/
-
 #graph_2 {
     flex: 1 1;
 }
@@ -479,46 +594,6 @@ a:hover {
     font-weight: normal;
     padding: 0rem 0 1rem 0;
     flex-wrap: wrap;
-}
-
-#panel_metrics {
-    margin-left: 2rem;
-    background-color: #2b2b2b;
-    padding: 0rem 0 1rem 0;
-}
-
-@media (max-width: 1800px) {
-    #panel_metrics {
-        margin: 2rem 0 0 0;
-    }
-}
-
-/********************************/
-/*Metrics_Displays*/
-/********************************/
-
-#fatality_rate_display {
-    margin-top: 18px;
-    margin-bottom: 18px;
-}
-
-#active_cases_display {
-    margin-top: 18px;
-    margin-bottom: 18px;
-}
-
-#tested_samples_display {
-    margin-top: 18px;
-    margin-bottom: 18px;
-}
-
-#hospitalized_display {
-    margin-top: 18px;
-    margin-bottom: 18px;
-}
-
-#icu_display {
-    margin-bottom: 12px;
 }
 
 .sc-kgoBCf.gcgTwS, .sc-kgoBCf.gcgTwS, .sc-kgoBCf.gcgTwS {
