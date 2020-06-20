@@ -74,7 +74,7 @@ body {
 .container_hospitalized_cases {
   border-radius: 5px;
   background-color: #2b2b2b;
-  margin: 15px 15px 30px 0px;
+  margin: 15px 15px 15px 0px;
   padding: 15px;
   position: relative;
   box-shadow: 0px 0px 0px #2b2b2b;
@@ -84,7 +84,7 @@ body {
 .container_icu_cases {
   border-radius: 5px;
   background-color: #2b2b2b;
-  margin: 15px 0px 30px 0px;
+  margin: 15px 0px 15px 0px;
   padding: 15px;
   position: relative;
   box-shadow: 0px 0px 0px #2b2b2b;
@@ -94,7 +94,7 @@ body {
 .container_samples_prt {
   border-radius: 5px;
   background-color: #2b2b2b;
-  margin: 15px 0px 30px 15px;
+  margin: 15px 0px 15px 15px;
   padding: 15px;
   position: relative;
   box-shadow: 0px 0px 0px #2b2b2b;
@@ -104,7 +104,48 @@ body {
 .container_death_rate {
   border-radius: 5px;
   background-color: #2b2b2b;
-  margin: 15px 0px 30px 15px;
+  margin: 15px 0px 15px 15px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+/****/
+
+.container_confirmed_cases_world {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 15px 15px 0px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_reported_deaths_world {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 15px 0px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_recovered_cases_world {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 15px 15px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 0px 0px 0px #2b2b2b;
+}
+
+
+.container_active_cases_world {
+  border-radius: 5px;
+  background-color: #2b2b2b;
+  margin: 15px 0px 15px 15px;
   padding: 15px;
   position: relative;
   box-shadow: 0px 0px 0px #2b2b2b;
@@ -500,10 +541,17 @@ a:hover {
 /*Lower Panel*/
 /********************************/
 
-#panel {
+#panel, #panel_graph_3 {
     display: flex;
     flex-direction: row;
-    margin-bottom: 30px
+    margin-bottom: 30px;
+}
+
+#panel_graph_3 {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 0px;
+    margin-top: 15px;
 }
 
 #placeholder {
@@ -511,13 +559,13 @@ a:hover {
 }
 
 @media (max-width: 1800px) {
-    #panel {
+    #panel, #panel_graph_3 {
         flex-direction: column;
     }
 }
 
 @media (max-width: 500px) {
-    #panel {
+    #panel, #panel_graph_3 {
         display: inline;
     }
 }
@@ -525,14 +573,14 @@ a:hover {
 /********************************/
 /*Lower Panel Graph*/
 /********************************/
-#graph_2_container {
+#graph_2_container, #graph_3_container {
     background-color: #2b2b2b;
     flex: 8 80%;
     display: flex;
     flex-direction: column;
 }
 
-#graph_2_header {
+#graph_2_header, #graph_3_header {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -545,11 +593,19 @@ a:hover {
     background-color: #2b2b2b !important;
 }
 
+#graph_3_header .sc-bdVaJa.fsmTNM, .sc-bdVaJa.bQWqnK {
+    background-color: #2b2b2b !important;
+}
+
 #graph_2_header .sc-bxivhb.iArJfC, .sc-bxivhb.cmSQpo {
     background-color: #484848 !important;
 }
 
-#graph_2_title {
+#graph_3_header .sc-bxivhb.iArJfC, .sc-bxivhb.cmSQpo {
+    background-color: #484848 !important;
+}
+
+#graph_2_title, #graph_3_title {
     flex: 1 66%;
     font-size: 1rem;
     font-weight: normal;
@@ -557,25 +613,29 @@ a:hover {
 
 /********************************/
 
-#graph_2 {
+#graph_2, #graph_3 {
     flex: 1 1;
 }
 
 @media (max-width: 500px) {
-    #graph_2_header {
+    #graph_2_header, #graph_3_header {
         flex-direction: column;
     }
 
-    #graph_2_title {
+    #graph_2_title, #graph_3_title {
         font-size: 0.9rem;
         margin-bottom: 1rem;
     }
 
-    #graph_2_container {
+    #graph_2_container, #graph_3_container {
         height: 25rem;
     }
 
     #graph_2 .xtick text, #graph_2 .ytick text {
+        font-size: 0.6rem !important;
+    }
+
+    #graph_3 .xtick text, #graph_3 .ytick text {
         font-size: 0.6rem !important;
     }
 }

@@ -51,9 +51,28 @@ where T = average time period from case confirmation to death, in our case T = 7
 """
 death_rate = round((data['Reported Deaths'].iloc[-1] / data['Confirmed Cases'].iloc[-8]) * 100, 2)
 
+# Confirmed cases by city in Portugal
+confirmed_cases_portugal_cities = pd.read_csv(
+    "https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data_concelhos.csv").fillna(
+    method='ffill').fillna(method='bfill').dropna(axis=1)
+pt_cities = confirmed_cases_portugal_cities.drop(columns='data')
 
-def get_country_data():
+DATA_PATH = pathlib.Path(__file__).parent.joinpath("data")
 
+cities_coordinates = pd.read_csv(DATA_PATH.joinpath('pt_regions.csv'), usecols=['city', 'latitude', 'longitude'])
+cities_coordinates['city'] = cities_coordinates['city'].str.upper()
+
+data_cities = cities_coordinates[cities_coordinates['city'].isin(pt_cities.columns)]
+data_cities = data_cities.assign(
+    current_cases=[pt_cities[city].iloc[-1] for _, city in enumerate(data_cities['city'])],
+    max_cases=[pt_cities[city].max() for _, city in enumerate(data_cities['city'])],
+    daily_diff=[pt_cities[city].iloc[-1] - pt_cities[city].iloc[-2] for _, city in enumerate(data_cities['city'])]
+)
+
+def get_current_country_data():
+
+    # This function assumes a 200 response.
+    # This needs to be reworked in the future in case the API call fails.
     url = 'https://www.trackcorona.live/api/countries'
     countries_data = requests.get(url).json()
     countries = pd.DataFrame(countries_data['data'])
@@ -68,7 +87,7 @@ def get_country_data():
     return countries
 
 
-countries = get_country_data()
+countries = get_current_country_data()
 world_confirmed = countries['confirmed'].sum()
 world_recovered = countries['recovered'].sum()
 world_deaths = countries['dead'].sum()
@@ -150,10 +169,10 @@ figure_2_scale_toggle = daq.ToggleSwitch(
     style={"color": "#black"}
 )
 
-region_toggle = daq.ToggleSwitch(
-    id="region_toggle",
-    value=True,
-    label=["Districts", "Cities"],
+figure_3_scale_toggle = daq.ToggleSwitch(
+    id="graph_3_scale_toggle",
+    value=False,
+    label=["Linear", "Logarithmic"],
     color="#ffe102",
     style={"color": "#black"}
 )
@@ -197,24 +216,111 @@ graph_2 = html.Div(
     ]
 )
 
-map_layout = {
-    "showlegend": False,
-    "autosize": True,
-    "paper_bgcolor": "#1e1e1e",
-    "plot_bgcolor": "#1e1e1e",
-    "margin": {"t": 0, "r": 0, "b": 0, "l": 0},
-}
+# Map graph
+color_scale = ['#FFFAFA', '#F4C2C2', '#FF6961', '#FF5C5C', '#FF1C00', '#FF0800', '#FF0000', '#CD5C5C', '#E34234',
+               '#D73B3E', '#CE1620', '#CC0000', '#B22222', '#B31B1B', '#A40000', '#800000', '#701C1C', '#321414']
+
+fig = go.Figure()
+
+fig.add_trace(
+    go.Scattermapbox(
+        lat=data_cities['latitude'],
+        lon=data_cities['longitude'],
+        hovertemplate="<b>%{hovertext}</b><br><br>"
+        "Current confirmed cases: %{marker.color}<br>"
+        "Peak confirmed cases: %{customdata}<br>"
+        "New cases since yesterday: %{text}"
+        "<extra></extra>",
+        customdata=data_cities['max_cases'],
+        hovertext=data_cities['city'],
+        text=data_cities['daily_diff'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=data_cities['current_cases'],
+            color=data_cities['current_cases'],
+            sizemode='area',
+            sizeref=.7,
+            colorscale=color_scale
+        )
+    )
+)
+
+fig.add_trace(
+    go.Scattermapbox(
+        lat=countries['latitude'],
+        lon=countries['longitude'],
+        hovertemplate="<b>%{hovertext}</b><br><br>"
+        "Confirmed cases: %{marker.color}<br>"
+        "Reported deaths: %{customdata}<br>"
+        "Recovered cases: %{text}"
+        "<extra></extra>",
+        customdata=countries['dead'],
+        hovertext=countries['location'],
+        text=countries['recovered'],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=countries['confirmed'],
+            color=countries['confirmed'],
+            sizemode='area',
+            sizeref=30,
+            colorscale=color_scale
+        )
+    )
+)
+
+MAPBOX_ACCESS_TOKEN = os.environ.get('MAPBOX_ACCESS_TOKEN')
+
+fig.update_layout(
+    autosize=True,
+    hovermode='closest',
+    showlegend=False,
+    clickmode='event+select',
+    margin={'b': 0, 'l': 0, 'r': 0, 't': 0},
+    mapbox=dict(
+        accesstoken=MAPBOX_ACCESS_TOKEN,
+        center=dict(
+            lat=39.55,
+            lon=-8.18
+        ),
+        zoom=6,
+        style='dark'
+    )
+)
 
 map_graph = html.Div(
     id="world_map_wrapper",
     children=[
-        region_toggle,
         dcc.Graph(
             id="world_map",
-            figure={"layout": map_layout},
+            figure=fig,
             config={"displayModeBar": False, "scrollZoom": True},
         ),
     ],
+)
+
+graph_3 = html.Div(
+    id="graph_3_container",
+    children=[
+        html.Div(
+            id="graph_3_header",
+            children=[
+                html.H1(
+                    id="graph_3_title", children=[""]
+                ),
+                figure_3_scale_toggle
+            ]
+        ),
+        dcc.Graph(
+            id="graph_3",
+            figure={"layout": {
+                "showlegend": False,
+                "autosize": True,
+                "paper_bgcolor": "#2b2b2b",
+                "plot_bgcolor": "2b2b2b",
+            }},
+            config={"displayModeBar": False}
+        )
+    ]
 )
 
 main_panel_layout = html.Div(
@@ -317,6 +423,12 @@ main_panel_layout = html.Div(
         ),
         map_graph,
         html.Div(
+            id="panel_graph_3",
+            children=[
+                graph_3
+            ]
+        ),
+        html.Div(
             [
                 html.Div(
                     [
@@ -324,7 +436,7 @@ main_panel_layout = html.Div(
                         html.P(children=["Confirmed Cases", html.Br(), "Worldwide"])
                     ],
                     id="confirmed_cases_world",
-                    className="container_confirmed_cases",
+                    className="container_confirmed_cases_world",
                 ),
                 html.Div(
                     [
@@ -332,7 +444,7 @@ main_panel_layout = html.Div(
                         html.P(children=["Reported Deaths", html.Br(), "Worldwide"])
                     ],
                     id="reported_deaths_world",
-                    className="container_reported_deaths",
+                    className="container_reported_deaths_world",
                 ),
                 html.Div(
                     [
@@ -340,7 +452,7 @@ main_panel_layout = html.Div(
                         html.P(children=["Recoverd Cases", html.Br(), "Worldwide"])
                     ],
                     id="recovered_cases_world",
-                    className="container_recovered_cases",
+                    className="container_recovered_cases_world",
                 ),
                 html.Div(
                     [
@@ -348,7 +460,7 @@ main_panel_layout = html.Div(
                         html.P(children=["Active Cases", html.Br(), "Worldwide"])
                     ],
                     id="active_cases_world",
-                    className="container_active_cases",
+                    className="container_active_cases_world",
                 )
             ],
             className="row container-display",
@@ -396,11 +508,11 @@ def update_data_description(val, val_time):
             trend that will be visible as a sudden drop. Note that the graph is not plotted over time, but instead over
             the total number of **{val}**, therefore, it plots the rate of change over the last {time_window}. Time is
             shown in each data point with the corresponding day. Below the main figure, the data over time is also
-            present. Hover over the graph for more information. Drag the mouse to zoom in and doubleclick to zoom back
-            out. For more information concerning statistics and research about *COVID-19* please visit
-            this [page](https://ourworldindata.org/coronavirus). Sources: Portugal data from [*Data Science
-            for Social Good Portugal*](https://github.com/dssg-pt/covid19pt-data).
-            Country level data from [*TrackCorona*](https://www.trackcorona.live/).
+            present. Hover over the graphs for more information. For more information concerning statistics and
+            research about *COVID-19* please visit this [page](https://ourworldindata.org/coronavirus). Sources:
+            Portugal data from [*Data Science for Social Good Portugal*](https://github.com/dssg-pt/covid19pt-data).
+            Country level data from [*TrackCorona*](https://www.trackcorona.live/) and
+            [*Our World in Data*](https://github.com/owid/covid-19-data/tree/master/public/data).
             Application's [source code](https://github.com/dvpinho/covid19dashboard).
             '''
     )
@@ -502,9 +614,8 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
             }
         )],
         'layout': dict(
-            margin={"t": 30, "r": 35, "b": 80, "l": 80},
+            margin={"t": 30, "r": 35, "b": 50, "l": 80},
             xaxis={
-                'title': 'Time',
                 'zeroline': False
             },
             yaxis={
@@ -597,114 +708,96 @@ def update_graph_1_data(data_source, time_frame, last_data, toggle):
 
 
 @app.callback(
-    Output('world_map', 'figure'),
-    [Input('region_toggle', 'value')]
+    Output('graph_3_title', 'children'),
+    [Input('world_map', 'clickData')]
 )
-def update_map(toggle):
-
-    pt_cities = pd.read_csv("https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data_concelhos.csv").drop(
-        columns='data').fillna(method='ffill').fillna(method='bfill').dropna(axis=1)
-
-    DATA_PATH = pathlib.Path(__file__).parent.joinpath("data")
-
-    cities_coordinates = pd.read_csv(DATA_PATH.joinpath('pt_regions.csv'), usecols=['city', 'latitude', 'longitude', 'district'])
-    cities_coordinates['city'] = cities_coordinates['city'].str.upper()
-
-    districts_coordinates = pd.read_csv(DATA_PATH.joinpath('pt_districts.csv'))
-
-    data = cities_coordinates[cities_coordinates['city'].isin(pt_cities.columns)]
-    data = data.assign(
-        current_cases=[pt_cities[city].iloc[-1] for _, city in enumerate(data['city'])],
-        max_cases=[pt_cities[city].max() for _, city in enumerate(data['city'])],
-        daily_diff=[pt_cities[city].iloc[-1] - pt_cities[city].iloc[-2] for _, city in enumerate(data['city'])]
-    )
-
-    data_districts = districts_coordinates.assign(
-        current_cases=[data[data['district'] == district]['current_cases'].sum() for _, district in enumerate(
-            districts_coordinates['district'])],
-        max_cases=[data[data['district'] == district]['max_cases'].sum() for _, district in enumerate(
-            districts_coordinates['district'])],
-        daily_diff=[data[data['district'] == district]['daily_diff'].sum() for _, district in enumerate(
-            districts_coordinates['district'])]
-    )
-
-    if toggle:
-        data_main = data
-        hover_name = "city"
+def update_graph_3_title(click_data):
+    if click_data is not None:
+        click_name = click_data['points'][0]['hovertext']
+        return f'Confirmed cases in {click_name}'
     else:
-        data_main = data_districts
-        hover_name = "district"
+        return 'Click on a map region to show the confirmed cases over time'
 
-    color_scale = ['#FFFAFA', '#F4C2C2', '#FF6961', '#FF5C5C', '#FF1C00', '#FF0800', '#FF0000', '#CD5C5C', '#E34234',
-                   '#D73B3E', '#CE1620', '#CC0000', '#B22222', '#B31B1B', '#A40000', '#800000', '#701C1C', '#321414']
 
-    fig = go.Figure()
+confirmed_cases_country = pd.read_csv(
+    'https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv',
+    usecols=['location', 'date', 'total_cases']
+)
 
-    fig.add_trace(
-        go.Scattermapbox(
-            lat=data_main['latitude'],
-            lon=data_main['longitude'],
-            hovertemplate="<b>%{hovertext}</b><br><br>"
-            "Current confirmed cases: %{marker.color}<br>"
-            "Peak confirmed cases: %{customdata}<br>"
-            "New cases since yesterday: %{text}"
-            "<extra></extra>",
-            customdata=data_main['max_cases'],
-            hovertext=data_main[hover_name],
-            text=data_main['daily_diff'],
-            mode='markers',
-            marker=go.scattermapbox.Marker(
-                size=data_main['current_cases'],
-                color=data_main['current_cases'],
-                sizemode='area',
-                sizeref=.7,
-                colorscale=color_scale
+confirmed_cases_portugal_cities['data'] = [datetime.strptime(
+    date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in confirmed_cases_portugal_cities['data']]
+stacked_portugal_cities_confirmed = pd.concat([pd.DataFrame(
+    {
+        'location': [city] * len(confirmed_cases_portugal_cities),
+        'date': confirmed_cases_portugal_cities['data'],
+        'total_cases': confirmed_cases_portugal_cities[city]
+    }) for city in confirmed_cases_portugal_cities.columns.values[1:]], ignore_index=True
+)
+
+world_pt_confirmed_cases = pd.concat([confirmed_cases_country, stacked_portugal_cities_confirmed], ignore_index=True)
+
+
+@app.callback(
+    Output('graph_3', 'figure'),
+    [Input('world_map', 'clickData'),
+     Input('graph_3_scale_toggle', 'value')])
+def display_click_data(click_data, toggle):
+
+    if click_data is not None:
+
+        region_name = click_data['points'][0]['hovertext']
+        cases_country = world_pt_confirmed_cases[world_pt_confirmed_cases['location'] == region_name]
+
+        return {
+            'data': [dict(
+                x=cases_country['date'],
+                y=cases_country['total_cases'],
+                mode='lines+markers',
+                marker={
+                    'size': 8,
+                    'opacity': 0.8
+                }
+            )],
+            'layout': dict(
+                margin={"t": 30, "r": 35, "b": 50, "l": 80},
+                xaxis={
+                    'zeroline': False
+                },
+                yaxis={
+                    'title': 'Confirmed Cases',
+                    'type': 'log' if toggle else 'linear',
+                    'zeroline': False
+                },
+                plot_bgcolor='#2b2b2b',
+                paper_bgcolor='#2b2b2b',
+                font={
+                    'color': '#a1a1a1',
+                    'family': 'Arial',
+                    'size': 13
+                }
             )
-        )
-    )
+        }
 
-    fig.add_trace(
-        go.Scattermapbox(
-            lat=countries['latitude'],
-            lon=countries['longitude'],
-            hovertemplate="<b>%{hovertext}</b><br><br>"
-            "Confirmed cases: %{marker.color}<br>"
-            "Reported deaths: %{customdata}<br>"
-            "Recovered cases: %{text}"
-            "<extra></extra>",
-            customdata=countries['dead'],
-            hovertext=countries['location'],
-            text=countries['recovered'],
-            mode='markers',
-            marker=go.scattermapbox.Marker(
-                size=countries['confirmed'],
-                color=countries['confirmed'],
-                sizemode='area',
-                sizeref=30,
-                colorscale=color_scale
+    else:
+
+        return {
+            'data': [dict(
+                x=[1], y=[1],
+                mode='markers',
+                hoverinfo='skip',
+                marker={
+                    'size': 1,
+                    'opacity': 0
+                }
+            )],
+            'layout': dict(
+                xaxis={'zeroline': False, 'showgrid': False},
+                yaxis={'zeroline': False, 'showgrid': False},
+                plot_bgcolor='#2b2b2b',
+                paper_bgcolor='#2b2b2b',
+                font={'color': '#2b2b2b'}
             )
-        )
-    )
-
-    MAPBOX_ACCESS_TOKEN = os.environ.get('MAPBOX_ACCESS_TOKEN')
-
-    fig.update_layout(
-        autosize=True,
-        hovermode='closest',
-        showlegend=False,
-        margin={'b': 0, 'l': 0, 'r': 0, 't': 0},
-        mapbox=dict(
-            accesstoken=MAPBOX_ACCESS_TOKEN,
-            center=dict(
-                lat=39.55,
-                lon=-8.18
-            ),
-            zoom=6,
-            style='dark'
-        )
-    )
-
-    return fig
+        }
 
 
 if __name__ == "__main__":
