@@ -1,6 +1,5 @@
 import os
 import dash
-import pathlib
 import requests
 import pandas as pd
 import plotly.graph_objs as go
@@ -13,16 +12,14 @@ from datetime import datetime
 
 # Load the data from DSSG_PT (Thanks!)
 data = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data.csv', usecols=[
-    'data', 'confirmados', 'recuperados', 'obitos', 'suspeitos', 'lab', 'internados', 'internados_uci'],
+    'data', 'confirmados', 'recuperados', 'obitos', 'internados', 'internados_uci'],
     skiprows=range(1, 5)).fillna(0).rename(columns={
         'data': 'Date',
         'confirmados': 'Confirmed Cases',
         'recuperados': 'Recovered Cases',
-        'obitos': 'Reported Deaths',
-        'suspeitos': 'Suspect Cases'})
+        'obitos': 'Reported Deaths'})
 
 data['Date'] = [datetime.strptime(date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in data['Date']]
-data['Non-Confirmed Cases'] = data['Suspect Cases'] - data['Confirmed Cases'] - data['lab']
 
 prt_confirmed = data['Confirmed Cases'].iloc[-1]
 prt_deaths = data['Reported Deaths'].iloc[-1]
@@ -35,13 +32,36 @@ hospitalized_daily = hospitalized - data['internados'].iloc[-2]
 intensive_care_unit = data['internados_uci'].iloc[-1]
 icu_daily = intensive_care_unit - data['internados_uci'].iloc[-2]
 
-data = data.drop(['lab', 'internados', 'internados_uci'], axis=1)
+data = data.drop(['internados', 'internados_uci'], axis=1)
 length_data = len(data)
 
 # Grab the number of tested samples
-samples_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/amostras.csv').iloc[-1]
+samples_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/amostras.csv',
+                          usecols=['amostras', 'amostras_novas']).iloc[-1]
 total_samples = samples_prt['amostras']
 new_samples = samples_prt['amostras_novas']
+
+# Grab the number of vaccines
+vaccines_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/vacinas.csv',
+                           usecols=['doses1', 'doses1_novas', 'doses2', 'doses2_novas']).iloc[-1]
+
+first_dose = vaccines_prt['doses1']
+second_dose = vaccines_prt['doses2']
+
+first_dose_new = vaccines_prt['doses1_novas']
+second_dose_new = vaccines_prt['doses2_novas']
+
+# Grab the R(t)
+rt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/rt.csv',
+                 usecols=['rt_nacional', 'rt_continente']).iloc[-2:]
+
+rt_nacional = rt['rt_nacional'].values
+rt_nacional_current = rt_nacional[-1]
+rt_nacional_diff = rt_nacional_current - rt_nacional[-2]
+
+rt_continente = rt['rt_continente'].values
+rt_continente_current = rt_continente[-1]
+rt_continente_diff = rt_continente_current - rt_continente[-2]
 
 """
 Metrics calculation
@@ -51,23 +71,6 @@ where T = average time period from case confirmation to death, in our case T = 7
 """
 death_rate = round((data['Reported Deaths'].iloc[-1] / data['Confirmed Cases'].iloc[-8]) * 100, 2)
 
-# Confirmed cases by city in Portugal
-confirmed_cases_portugal_cities = pd.read_csv(
-    "https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data_concelhos.csv").fillna(
-    method='ffill').fillna(method='bfill').dropna(axis=1)
-pt_cities = confirmed_cases_portugal_cities.drop(columns='data')
-
-DATA_PATH = pathlib.Path(__file__).parent.joinpath("data")
-
-cities_coordinates = pd.read_csv(DATA_PATH.joinpath('pt_regions.csv'), usecols=['city', 'latitude', 'longitude'])
-cities_coordinates['city'] = cities_coordinates['city'].str.upper()
-
-data_cities = cities_coordinates[cities_coordinates['city'].isin(pt_cities.columns)]
-data_cities = data_cities.assign(
-    current_cases=[pt_cities[city].iloc[-1] for _, city in enumerate(data_cities['city'])],
-    max_cases=[pt_cities[city].max() for _, city in enumerate(data_cities['city'])],
-    daily_diff=[pt_cities[city].iloc[-1] - pt_cities[city].iloc[-2] for _, city in enumerate(data_cities['city'])]
-)
 
 def get_current_country_data():
 
@@ -77,12 +80,13 @@ def get_current_country_data():
     countries_data = requests.get(url).json()
     countries = pd.DataFrame(countries_data['data'])
 
-    # Location correction for Togo, Congo and Georgia
+    # Location correction for Togo, Congo, Georgia, Jordan, Namibia and Artsakh
     countries.loc[countries['location'] == 'Togo', ['latitude', 'longitude']] = 8.619543, 0.824782
     countries.loc[countries['location'] == 'Congo', ['latitude', 'longitude']] = -0.228021, 15.827659
     countries.loc[countries['location'] == 'Georgia', ['latitude', 'longitude']] = 42.315407, 43.356892
-
-    countries = countries[countries['location'] != 'Portugal']  # Remove PRT from map. Data from PRT has own source.
+    countries.loc[countries['location'] == 'Jordan', ['latitude', 'longitude']] = 31.963158, 35.930359
+    countries.loc[countries['location'] == 'Namibia', ['latitude', 'longitude']] = -22.5594, 17.0832
+    countries.loc[countries['location'] == 'Artsakh', ['latitude', 'longitude']] = 39.820443, 46.754817
 
     return countries
 
@@ -127,6 +131,9 @@ time_window_dropdown = dcc.Dropdown(
     id="time_window_dropdown_component",
     options=[
         {'label': 'All Data', 'value': 'All Data'},
+        {'label': 'Last 120 days', 'value': 'Last 120 days'},
+        {'label': 'Last 90 days', 'value': 'Last 90 days'},
+        {'label': 'Last 60 days', 'value': 'Last 60 days'},
         {'label': 'Last 30 days', 'value': 'Last 30 days'},
         {'label': 'Last 15 days', 'value': 'Last 15 days'},
         {'label': 'Last 7 days', 'value': 'Last 7 days'},
@@ -224,29 +231,6 @@ fig = go.Figure()
 
 fig.add_trace(
     go.Scattermapbox(
-        lat=data_cities['latitude'],
-        lon=data_cities['longitude'],
-        hovertemplate="<b>%{hovertext}</b><br><br>"
-        "Current confirmed cases: %{marker.color}<br>"
-        "Peak confirmed cases: %{customdata}<br>"
-        "New cases since yesterday: %{text}"
-        "<extra></extra>",
-        customdata=data_cities['max_cases'],
-        hovertext=data_cities['city'],
-        text=data_cities['daily_diff'],
-        mode='markers',
-        marker=go.scattermapbox.Marker(
-            size=data_cities['current_cases'],
-            color=data_cities['current_cases'],
-            sizemode='area',
-            sizeref=.7,
-            colorscale=color_scale
-        )
-    )
-)
-
-fig.add_trace(
-    go.Scattermapbox(
         lat=countries['latitude'],
         lon=countries['longitude'],
         hovertemplate="<b>%{hovertext}</b><br><br>"
@@ -262,7 +246,7 @@ fig.add_trace(
             size=countries['confirmed'],
             color=countries['confirmed'],
             sizemode='area',
-            sizeref=30,
+            sizeref=100,
             colorscale=color_scale
         )
     )
@@ -416,6 +400,49 @@ main_panel_layout = html.Div(
             className="row container-display",
         ),
         html.Div(
+            [
+                html.Div(
+                    [
+                        html.H6(f'{int(first_dose):,}'.replace(',', ' '), style={'color': '#4db6ac'}),
+                        dcc.Markdown(f'*+{int(first_dose_new):,}*'.replace(',', ' '), style={'color': '#4db6ac'}),
+                        html.P(children=["Vaccine First Dose", html.Br(), "Portugal"])
+                    ],
+                    id="first_dose_prt",
+                    className="container_first_dose_prt",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{int(second_dose):,}'.replace(',', ' '), style={'color': '#4db6ac'}),
+                        dcc.Markdown(f'*+{int(second_dose_new):,}*'.replace(',', ' '), style={'color': '#4db6ac'}),
+                        html.P(children=["Vaccine Second Dose", html.Br(), "Portugal"])
+                    ],
+                    id="second_dose_prt",
+                    className="container_second_dose_prt",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{rt_nacional_current:.3f}', style={'color': '#FFA500'}),
+                        dcc.Markdown(f'*+{rt_nacional_diff:.3f}*' if rt_nacional_diff > 0 else f'*{rt_nacional_diff:.3f}*',
+                                     style={'color': '#FFA500'}),
+                        html.P(children=["R(t)", html.Br(), "Portugal"])
+                    ],
+                    id="rt_prt",
+                    className="container_rt_prt",
+                ),
+                html.Div(
+                    [
+                        html.H6(f'{rt_continente_current:.3f}', style={'color': '#FFA500'}),
+                        dcc.Markdown(f'*+{rt_continente_diff:.3f}*' if rt_continente_diff > 0 else f'*{rt_continente_diff:.3f}*',
+                                     style={'color': '#FFA500'}),
+                        html.P(children=["R(t) Main Land", html.Br(), "Portugal"])
+                    ],
+                    id="rt_main_land_prt",
+                    className="container_rt_main_land_prt",
+                )
+            ],
+            className="row container-display",
+        ),
+        html.Div(
             id="panel",
             children=[
                 graph_2
@@ -546,12 +573,8 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
         index = 1
     elif data_source == 'Reported Deaths':
         index = 16
-    elif data_source == 'Suspect Cases':
-        index = 0
     elif data_source == 'Recovered Cases':
         index = 13
-    elif data_source == 'Non-Confirmed Cases':
-        index = 0
 
     if time_frame == 'Weekly':
         time = 7
@@ -560,6 +583,12 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
 
     if last_data == 'All Data':
         t = 0
+    elif last_data == 'Last 120 days':
+        t = length_data - 120 - time - index
+    elif last_data == 'Last 90 days':
+        t = length_data - 90 - time - index
+    elif last_data == 'Last 60 days':
+        t = length_data - 60 - time - index
     elif last_data == 'Last 30 days':
         t = length_data - 30 - time - index
     elif last_data == 'Last 15 days':
@@ -589,6 +618,12 @@ def update_graph_2_data(data_source, time_frame, last_data, toggle):
                 offset = 8
             elif data_source == 'Recovered Cases':
                 offset = 5
+        elif last_data == 'Last 120 days':
+            offset = length_data - 121 - time
+        elif last_data == 'Last 90 days':
+            offset = length_data - 91 - time
+        elif last_data == 'Last 60 days':
+            offset = length_data - 61 - time
         elif last_data == 'Last 30 days':
             offset = length_data - 31 - time
         elif last_data == 'Last 15 days':
@@ -651,6 +686,12 @@ def update_graph_1_data(data_source, time_frame, last_data, toggle):
 
     if last_data == 'All Data':
         t = 0
+    elif last_data == 'Last 120 days':
+        t = length_data - 120 - time
+    elif last_data == 'Last 90 days':
+        t = length_data - 90 - time
+    elif last_data == 'Last 60 days':
+        t = length_data - 60 - time
     elif last_data == 'Last 30 days':
         t = length_data - 30 - time
     elif last_data == 'Last 15 days':
@@ -724,18 +765,6 @@ confirmed_cases_country = pd.read_csv(
     usecols=['location', 'date', 'total_cases']
 )
 
-confirmed_cases_portugal_cities['data'] = [datetime.strptime(
-    date, '%d-%m-%Y').strftime('%Y-%m-%d') for date in confirmed_cases_portugal_cities['data']]
-stacked_portugal_cities_confirmed = pd.concat([pd.DataFrame(
-    {
-        'location': [city] * len(confirmed_cases_portugal_cities),
-        'date': confirmed_cases_portugal_cities['data'],
-        'total_cases': confirmed_cases_portugal_cities[city]
-    }) for city in confirmed_cases_portugal_cities.columns.values[1:]], ignore_index=True
-)
-
-world_pt_confirmed_cases = pd.concat([confirmed_cases_country, stacked_portugal_cities_confirmed], ignore_index=True)
-
 
 @app.callback(
     Output('graph_3', 'figure'),
@@ -746,7 +775,7 @@ def display_click_data(click_data, toggle):
     if click_data is not None:
 
         region_name = click_data['points'][0]['hovertext']
-        cases_country = world_pt_confirmed_cases[world_pt_confirmed_cases['location'] == region_name]
+        cases_country = confirmed_cases_country[confirmed_cases_country['location'] == region_name]
 
         return {
             'data': [dict(
