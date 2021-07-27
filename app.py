@@ -1,13 +1,13 @@
 import os
 import dash
-import requests
+import pathlib
 import pandas as pd
-import plotly.graph_objs as go
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import dash_daq as daq
 from datetime import datetime
+import plotly.express as px
 
 
 # Load the data from DSSG_PT (Thanks!)
@@ -71,31 +71,28 @@ where T = average time period from case confirmation to death, in our case T = 7
 """
 death_rate = round((data['Reported Deaths'].iloc[-1] / data['Confirmed Cases'].iloc[-8]) * 100, 2)
 
-
-def get_current_country_data():
-
-    # This function assumes a 200 response.
-    # This needs to be reworked in the future in case the API call fails.
-    url = 'https://www.trackcorona.live/api/countries'
-    countries_data = requests.get(url).json()
-    countries = pd.DataFrame(countries_data['data'])
-
-    # Location correction for Togo, Congo, Georgia, Jordan, Namibia and Artsakh
-    countries.loc[countries['location'] == 'Togo', ['latitude', 'longitude']] = 8.619543, 0.824782
-    countries.loc[countries['location'] == 'Congo', ['latitude', 'longitude']] = -0.228021, 15.827659
-    countries.loc[countries['location'] == 'Georgia', ['latitude', 'longitude']] = 42.315407, 43.356892
-    countries.loc[countries['location'] == 'Jordan', ['latitude', 'longitude']] = 31.963158, 35.930359
-    countries.loc[countries['location'] == 'Namibia', ['latitude', 'longitude']] = -22.5594, 17.0832
-    countries.loc[countries['location'] == 'Artsakh', ['latitude', 'longitude']] = 39.820443, 46.754817
-
-    return countries
+covid_data_columns = ['location', 'date', 'total_cases', 'new_cases', 'total_deaths',
+                      'new_deaths', 'new_tests', 'total_deaths', 'total_vaccinations',
+                      'people_vaccinated', 'people_fully_vaccinated', 'new_vaccinations']
 
 
-countries = get_current_country_data()
-world_confirmed = countries['confirmed'].sum()
-world_recovered = countries['recovered'].sum()
-world_deaths = countries['dead'].sum()
-world_active = world_confirmed - world_recovered - world_deaths
+DATA_PATH = pathlib.Path(__file__).parent.joinpath("assets")
+coordinates = pd.read_csv(DATA_PATH.joinpath('coordinates.csv'), sep=';')
+
+confirmed_cases_country = pd.read_csv(
+    'https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv',
+    usecols=covid_data_columns
+)
+
+countries_grouped = confirmed_cases_country.groupby('location').last().reset_index()
+countries = countries_grouped[countries_grouped['location'].isin(coordinates['location'])]
+countries = countries.merge(coordinates).fillna(0)
+
+world_covid_data = countries_grouped[countries_grouped['location'] == 'World']
+world_confirmed = int(world_covid_data['total_cases'].values[0])
+world_deaths = int(world_covid_data['total_deaths'].values[0])
+world_total_vacs = int(world_covid_data['total_vaccinations'].values[0])
+world_fully_vacs = int(world_covid_data['people_fully_vaccinated'].values[0])
 
 # Initialize the app
 app = dash.Dash(
@@ -227,30 +224,12 @@ graph_2 = html.Div(
 color_scale = ['#FFFAFA', '#F4C2C2', '#FF6961', '#FF5C5C', '#FF1C00', '#FF0800', '#FF0000', '#CD5C5C', '#E34234',
                '#D73B3E', '#CE1620', '#CC0000', '#B22222', '#B31B1B', '#A40000', '#800000', '#701C1C', '#321414']
 
-fig = go.Figure()
 
-fig.add_trace(
-    go.Scattermapbox(
-        lat=countries['latitude'],
-        lon=countries['longitude'],
-        hovertemplate="<b>%{hovertext}</b><br><br>"
-        "Confirmed cases: %{marker.color}<br>"
-        "Reported deaths: %{customdata}<br>"
-        "Recovered cases: %{text}"
-        "<extra></extra>",
-        customdata=countries['dead'],
-        hovertext=countries['location'],
-        text=countries['recovered'],
-        mode='markers',
-        marker=go.scattermapbox.Marker(
-            size=countries['confirmed'],
-            color=countries['confirmed'],
-            sizemode='area',
-            sizeref=100,
-            colorscale=color_scale
-        )
-    )
-)
+fig = px.scatter_mapbox(countries, lat="latitude", lon="longitude", hover_name="location",
+                        size='total_cases', size_max=175, color='total_cases',
+                        color_continuous_scale=color_scale,
+                        hover_data=covid_data_columns)
+
 
 MAPBOX_ACCESS_TOKEN = os.environ.get('MAPBOX_ACCESS_TOKEN')
 
@@ -258,15 +237,16 @@ fig.update_layout(
     autosize=True,
     hovermode='closest',
     showlegend=False,
+    coloraxis_showscale=False,
     clickmode='event+select',
     margin={'b': 0, 'l': 0, 'r': 0, 't': 0},
     mapbox=dict(
         accesstoken=MAPBOX_ACCESS_TOKEN,
         center=dict(
-            lat=39.55,
-            lon=-8.18
+            lat=51.16,
+            lon=10.45
         ),
-        zoom=6,
+        zoom=3,
         style='dark'
     )
 )
@@ -475,19 +455,19 @@ main_panel_layout = html.Div(
                 ),
                 html.Div(
                     [
-                        html.H5(f'{world_recovered:,}'.replace(',', ' '), style={'color': '#66bb6a'}),
-                        html.P(children=["Recoverd Cases", html.Br(), "Worldwide"])
+                        html.H5(f'{world_total_vacs:,}'.replace(',', ' '), style={'color': '#66bb6a'}),
+                        html.P(children=["Total Vaccinations", html.Br(), "Worldwide"])
                     ],
-                    id="recovered_cases_world",
-                    className="container_recovered_cases_world",
+                    id="total_vacs_world",
+                    className="container_total_vacs_world",
                 ),
                 html.Div(
                     [
-                        html.H5(f'{world_active:,}'.replace(',', ' '), style={'color': '#FFA500'}),
-                        html.P(children=["Active Cases", html.Br(), "Worldwide"])
+                        html.H5(f'{world_fully_vacs:,}'.replace(',', ' '), style={'color': '#FFA500'}),
+                        html.P(children=["People Fully Vaccinated", html.Br(), "Worldwide"])
                     ],
-                    id="active_cases_world",
-                    className="container_active_cases_world",
+                    id="fully_vacs_world",
+                    className="container_fully_vacs_world",
                 )
             ],
             className="row container-display",
@@ -538,8 +518,7 @@ def update_data_description(val, val_time):
             present. Hover over the graphs for more information. For more information concerning statistics and
             research about *COVID-19* please visit this [page](https://ourworldindata.org/coronavirus). Sources:
             Portugal data from [*Data Science for Social Good Portugal*](https://github.com/dssg-pt/covid19pt-data).
-            Country level data from [*TrackCorona*](https://www.trackcorona.live/) and
-            [*Our World in Data*](https://github.com/owid/covid-19-data/tree/master/public/data).
+            Country level data from [*Our World in Data*](https://github.com/owid/covid-19-data/tree/master/public/data).
             Application's [source code](https://github.com/dvpinho/covid19dashboard).
             '''
     )
@@ -758,12 +737,6 @@ def update_graph_3_title(click_data):
         return f'Confirmed cases in {click_name}'
     else:
         return 'Click on a map region to show the confirmed cases over time'
-
-
-confirmed_cases_country = pd.read_csv(
-    'https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv',
-    usecols=['location', 'date', 'total_cases']
-)
 
 
 @app.callback(
