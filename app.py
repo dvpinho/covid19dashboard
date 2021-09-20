@@ -43,7 +43,7 @@ new_samples = samples_prt['amostras_novas']
 
 # Grab the number of vaccines
 vaccines_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/vacinas.csv',
-                           usecols=['doses1', 'doses1_novas', 'doses2', 'doses2_novas']).iloc[-1]
+                           usecols=['doses1', 'doses1_novas', 'doses2', 'doses2_novas']).dropna().iloc[-1]
 
 first_dose = vaccines_prt['doses1']
 second_dose = vaccines_prt['doses2']
