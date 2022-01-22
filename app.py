@@ -12,7 +12,7 @@ import plotly.express as px
 
 # Load the data from DSSG_PT (Thanks!)
 data = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data.csv', usecols=[
-    'data', 'confirmados', 'recuperados', 'obitos', 'internados', 'internados_uci'],
+    'data', 'confirmados', 'recuperados', 'obitos', 'internados', 'internados_uci', 'incidencia_nacional', 'rt_nacional'],
     skiprows=range(1, 5)).fillna(0).rename(columns={
         'data': 'Date',
         'confirmados': 'Confirmed Cases',
@@ -31,8 +31,13 @@ hospitalized = data['internados'].iloc[-1]
 hospitalized_daily = hospitalized - data['internados'].iloc[-2]
 intensive_care_unit = data['internados_uci'].iloc[-1]
 icu_daily = intensive_care_unit - data['internados_uci'].iloc[-2]
+national_incidence = data['incidencia_nacional'].iloc[-1]
+national_incidence_diff = national_incidence - data['incidencia_nacional'].iloc[-2]
+rt_nacional = data['rt_nacional'].values
+rt_nacional_current = rt_nacional[-1]
+rt_nacional_diff = rt_nacional_current - rt_nacional[-2]
 
-data = data.drop(['internados', 'internados_uci'], axis=1)
+data = data.drop(['internados', 'internados_uci', 'incidencia_nacional', 'rt_nacional'], axis=1)
 length_data = len(data)
 
 # Grab the number of tested samples
@@ -43,25 +48,14 @@ new_samples = samples_prt['amostras_novas']
 
 # Grab the number of vaccines
 vaccines_prt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/vacinas.csv',
-                           usecols=['doses1', 'doses1_novas', 'doses2', 'doses2_novas']).dropna().iloc[-1]
+                           usecols=['pessoas_vacinadas_completamente', 'pessoas_vacinadas_completamente_novas',
+                                    'pessoas_reforço', 'pessoas_reforço_novas']).iloc[-1]
 
-first_dose = vaccines_prt['doses1']
-second_dose = vaccines_prt['doses2']
+first_dose = vaccines_prt['pessoas_vacinadas_completamente']
+second_dose = vaccines_prt['pessoas_reforço']
 
-first_dose_new = vaccines_prt['doses1_novas']
-second_dose_new = vaccines_prt['doses2_novas']
-
-# Grab the R(t)
-rt = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/rt.csv',
-                 usecols=['rt_nacional', 'rt_continente']).iloc[-2:]
-
-rt_nacional = rt['rt_nacional'].values
-rt_nacional_current = rt_nacional[-1]
-rt_nacional_diff = rt_nacional_current - rt_nacional[-2]
-
-rt_continente = rt['rt_continente'].values
-rt_continente_current = rt_continente[-1]
-rt_continente_diff = rt_continente_current - rt_continente[-2]
+first_dose_new = vaccines_prt['pessoas_vacinadas_completamente_novas']
+second_dose_new = vaccines_prt['pessoas_reforço_novas']
 
 """
 Metrics calculation
@@ -385,7 +379,7 @@ main_panel_layout = html.Div(
                     [
                         html.H6(f'{int(first_dose):,}'.replace(',', ' '), style={'color': '#4db6ac'}),
                         dcc.Markdown(f'*+{int(first_dose_new):,}*'.replace(',', ' '), style={'color': '#4db6ac'}),
-                        html.P(children=["Vaccine First Dose", html.Br(), "Portugal"])
+                        html.P(children=["Fully Vaccinated", html.Br(), "Portugal"])
                     ],
                     id="first_dose_prt",
                     className="container_first_dose_prt",
@@ -394,15 +388,15 @@ main_panel_layout = html.Div(
                     [
                         html.H6(f'{int(second_dose):,}'.replace(',', ' '), style={'color': '#4db6ac'}),
                         dcc.Markdown(f'*+{int(second_dose_new):,}*'.replace(',', ' '), style={'color': '#4db6ac'}),
-                        html.P(children=["Vaccine Second Dose", html.Br(), "Portugal"])
+                        html.P(children=["Booster Dose", html.Br(), "Portugal"])
                     ],
                     id="second_dose_prt",
                     className="container_second_dose_prt",
                 ),
                 html.Div(
                     [
-                        html.H6(f'{rt_nacional_current:.3f}', style={'color': '#FFA500'}),
-                        dcc.Markdown(f'*+{rt_nacional_diff:.3f}*' if rt_nacional_diff > 0 else f'*{rt_nacional_diff:.3f}*',
+                        html.H6(f'{rt_nacional_current:.2f}', style={'color': '#FFA500'}),
+                        dcc.Markdown(f'*+{rt_nacional_diff:.2f}*' if rt_nacional_diff > 0 else f'*{rt_nacional_diff:.2f}*',
                                      style={'color': '#FFA500'}),
                         html.P(children=["R(t)", html.Br(), "Portugal"])
                     ],
@@ -411,10 +405,10 @@ main_panel_layout = html.Div(
                 ),
                 html.Div(
                     [
-                        html.H6(f'{rt_continente_current:.3f}', style={'color': '#FFA500'}),
-                        dcc.Markdown(f'*+{rt_continente_diff:.3f}*' if rt_continente_diff > 0 else f'*{rt_continente_diff:.3f}*',
+                        html.H6(f'{national_incidence:.1f}', style={'color': '#FFA500'}),
+                        dcc.Markdown(f'*+{national_incidence_diff:.1f}*' if national_incidence_diff > 0 else f'*{national_incidence_diff:.1f}*',
                                      style={'color': '#FFA500'}),
-                        html.P(children=["R(t) Main Land", html.Br(), "Portugal"])
+                        html.P(children=["Incidence", html.Br(), "Portugal"])
                     ],
                     id="rt_main_land_prt",
                     className="container_rt_main_land_prt",
