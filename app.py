@@ -13,7 +13,7 @@ import plotly.express as px
 # Load the data from DSSG_PT (Thanks!)
 data = pd.read_csv('https://raw.githubusercontent.com/dssg-pt/covid19pt-data/master/data.csv', usecols=[
     'data', 'confirmados', 'recuperados', 'obitos', 'internados', 'internados_uci', 'incidencia_nacional', 'rt_nacional'],
-    skiprows=range(1, 5)).fillna(0).rename(columns={
+    skiprows=range(1, 5)).fillna(method='ffill').fillna(0).rename(columns={
         'data': 'Date',
         'confirmados': 'Confirmed Cases',
         'recuperados': 'Recovered Cases',
