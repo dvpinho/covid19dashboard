@@ -1,4 +1,4 @@
-# [Dashboard](https://covid19dashboardpt.herokuapp.com/) COVID-19 Portugal 🇵🇹
+# Dashboard COVID-19 Portugal 🇵🇹
 ### About the dashboard
 This dashboard displays the trends for `confirmed cases`, `reported deaths` and `recovered cases`. The weekly and daily rate of change for all figures are presented not only over time but also over the figure itself. This analysis was inspired from the one performed by [@aatishb](https://github.com/aatishb/covidtrends).
 
